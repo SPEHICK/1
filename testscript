@@ -25,9 +25,9 @@ local TargetPlayers = {}
 local isSpamming, VortexEnabled, WingsEnabled, RingsEnabled, PalmEnabled = false, false, false, false, false
 local curLang, angle, lastOwnerTick, lastHttpTick = "RU", 0, 0, 0
 
--- Настройки руки
+-- --- НАСТРОЙКИ ---
 local X_INV, Y_INV = -1.6, -1.6 
-local handScale, smoothness = 4.8, 0.35
+local handScale, smoothness = 4.8, 0.35 
 local connections = {
     {0, 1}, {1, 2}, {2, 3}, {3, 4}, {0, 5}, {5, 6}, {6, 7}, {7, 8},
     {0, 9}, {9, 10}, {10, 11}, {11, 12}, {0, 13}, {13, 14}, {14, 15}, {15, 16},
@@ -72,7 +72,6 @@ local SpW, ToW, ClW = style(Color3.fromRGB(0, 150, 150), WingsC), style(Color3.f
 local SpR, ToR = style(Color3.fromRGB(150, 0, 150), RingsC), style(Color3.fromRGB(50, 50, 50), RingsC)
 local SpP, ToP = style(Color3.fromRGB(0, 150, 0), PalmC), style(Color3.fromRGB(50, 50, 50), PalmC)
 
--- --- МОНИТОР ДЛЯ PALM ---
 local Monitor = Instance.new("Frame", PalmC); Monitor.Size, Monitor.BackgroundColor3 = UDim2.new(0, 120, 0, 120), Color3.new(0,0,0)
 Instance.new("UICorner", Monitor)
 local dots = {}
@@ -117,18 +116,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    if RingsEnabled then
-        local balls = {}
-        for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "BasketBall" then table.insert(balls, (o:IsA("Model") and (o.PrimaryPart or o:FindFirstChildWhichIsA("BasePart")) or o)) end end
-        for i, b in ipairs(balls) do if i > 20 then break end
-            local ring, t = (i <= 10 and 1 or 2), tick()
-            local side, speed = (ring == 1 and 1 or -1), t * 1.5 * (ring == 1 and 1 or -1)
-            local rel = CFrame.Angles(math.rad(25 * side), 0, math.rad(15)) * Vector3.new(math.cos(speed + (i%10)*(math.pi*2/10)) * (ring==1 and 14 or 22), math.sin(t + (i%10)*(math.pi*2/10)) * 2, math.sin(speed + (i%10)*(math.pi*2/10)) * (ring==1 and 12 or 18))
-            local targetPos = root.Position + rel; b.Velocity = Vector3.zero; if canNet then remoteOwner:FireServer(b, targetPos) end; b.CFrame = CFrame.new(targetPos) 
-        end
-    end
-
-    -- ЛОГИКА PALM С МОНИТОРОМ
     if (PalmC.Visible or PalmEnabled) and tick() - lastHttpTick > 0.03 then
         lastHttpTick = tick()
         task.spawn(function()
@@ -136,7 +123,8 @@ RunService.Heartbeat:Connect(function()
             if ok and res then
                 local data = HttpService:JSONDecode(res)
                 if data and data.status == "hand_detected" then
-                    local handOrigin = root.CFrame * CFrame.new(0, 4, -12)
+                    -- ОБНОВЛЕННАЯ ПОЗИЦИЯ: -20 влево, 90 вперед
+                    local handOrigin = root.CFrame * CFrame.new(-20, 0, -90)
                     local palls = {}
                     if PalmEnabled then
                         for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "Pallet" then table.insert(palls, (o:IsA("Model") and (o.PrimaryPart or o:FindFirstChildWhichIsA("BasePart")) or o)) end end
@@ -147,7 +135,6 @@ RunService.Heartbeat:Connect(function()
                         local sId = tostring(id)
                         local p = data.coordinates[sId]
                         if p then
-                            -- Обновляем монитор
                             if dots[sId] then
                                 dots[sId].Visible = true
                                 dots[sId].Position = UDim2.new(0, (p.x/35 + 0.5)*120, 0, (1-(p.y/35 + 0.5))*120)
@@ -181,31 +168,27 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- ОСТАЛЬНЫЕ ФУНКЦИИ
 SpP.MouseButton1Click:Connect(function() 
     local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if r then for i = 1, 50 do task.spawn(function() toyRemote:InvokeServer("Pallet", r.CFrame * CFrame.new(0, 15, 0), 30, 30, 5) end) if i%5==0 then task.wait(0.1) end end end 
 end)
 ToP.MouseButton1Click:Connect(function() PalmEnabled = not PalmEnabled; ToP.BackgroundColor3 = PalmEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50) end)
-
 ClW.MouseButton1Click:Connect(function()
     isSpamming, WingsEnabled, VortexEnabled, RingsEnabled, PalmEnabled = false, false, false, false, false
     ToW.BackgroundColor3, ToR.BackgroundColor3, ToP.BackgroundColor3 = Color3.fromRGB(50,50,50), Color3.fromRGB(50,50,50), Color3.fromRGB(50,50,50)
-    if toyFolder then for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "Pallet" or o.Name == "DarkMatter" or o.Name == "BasketBall" then pcall(function() destroyRemote:FireServer(o) end) end end end
+    if toyFolder then for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "Pallet" or o.Name == "DarkMatter" or o.Name == "BasketBall" or o.Name == "Plane" then pcall(function() destroyRemote:FireServer(o) end) end end end
 end)
-
 SpW.MouseButton1Click:Connect(function() 
     local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if r then for i = 1, 20 do task.spawn(function() toyRemote:InvokeServer("Pallet", r.CFrame * CFrame.new(0, 10, 0), 30, 30, 5) end) task.wait(0.04) end end 
 end)
-
 SpR.MouseButton1Click:Connect(function() 
     local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if r then for i = 1, 20 do task.spawn(function() toyRemote:InvokeServer("BasketBall", r.CFrame * CFrame.new(0, 10, 0), 30, 30, 5) end) task.wait(0.04) end end 
 end)
-
 ToR.MouseButton1Click:Connect(function() RingsEnabled = not RingsEnabled; ToR.BackgroundColor3 = RingsEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50) end)
 ToW.MouseButton1Click:Connect(function() WingsEnabled = not WingsEnabled; ToW.BackgroundColor3 = WingsEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50) end)
-
 StartS.MouseButton1Click:Connect(function()
     if not targetMode then return end; isSpamming = true
     while isSpamming do
@@ -215,18 +198,15 @@ StartS.MouseButton1Click:Connect(function()
         end end; task.wait(0.2)
     end
 end)
-
 StopS.MouseButton1Click:Connect(function() isSpamming = false end)
 Tab1.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC.Visible, PalmC.Visible = true, false, false, false, false end)
 Tab2.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC.Visible, PalmC.Visible = false, true, false, false, false end)
 Tab3.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC.Visible, PalmC.Visible = false, false, true, false, false end)
 Tab4.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC.Visible, PalmC.Visible = false, false, false, true, false end)
 Tab5.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC.Visible, PalmC.Visible = false, false, false, false, true end)
-
 LangBtn.MouseButton1Click:Connect(function() curLang = (curLang == "RU") and "EN" or "RU"; updateUI() end)
 SelAll.MouseButton1Click:Connect(function() TargetPlayers = {}; for _, p in pairs(Players:GetPlayers()) do if p ~= player then TargetPlayers[p.Name] = true end end; targetMode = "ALL"; updatePlayers(); updateUI() end)
 StartV.MouseButton1Click:Connect(function() VortexEnabled = true end); StopV.MouseButton1Click:Connect(function() VortexEnabled = false end)
-
 TPMe.MouseButton1Click:Connect(function() 
     local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if not r then return end
     task.spawn(function()
