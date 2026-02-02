@@ -5,193 +5,166 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local pGui = player:WaitForChild("PlayerGui", 10)
 
--- Ремоуты
+local folderName = player.Name .. "SpawnedInToys"
+local toyFolder = workspace:FindFirstChild(folderName)
+
+task.spawn(function()
+    if not toyFolder then toyFolder = workspace:WaitForChild(folderName, 10) end
+end)
+
+if pGui:FindFirstChild("Vortex_V43_Rings") then pGui.Vortex_V43_Rings:Destroy() end
+
 local toyRemote = RS:WaitForChild("Menu"):WaitForChild("SpawnToyRemoteFunction")
+local destroyRemote = RS:WaitForChild("Menu"):WaitForChild("DestroyToy")
 local remoteOwner = RS:WaitForChild("GrabEvents"):WaitForChild("SetOwnerNetwork")
 local remoteStruggle = RS:WaitForChild("GrabEvents"):WaitForChild("Struggle")
-local toyFolder = workspace:WaitForChild("DirizandiSpawnedInToys")
 
--- Логика
 local targetMode = nil
 local TargetPlayers = {}
-local isSpamming = false
-local VortexEnabled = false
-local isCleaning = false 
-local curLang = "RU"
-local angle = 0
-local VortexDistance = 25
-local VortexSpeed = 0.05
+local isSpamming, VortexEnabled, WingsEnabled, RingsEnabled = false, false, false, false
+local curLang, angle, lastOwnerTick = "RU", 0, 0 
 
--- Словари языков
 local Langs = {
-    RU = {
-        Owner = "УПРАВЛЕНИЕ", Spam = "СПАМЕР", Target = "ЦЕЛЬ: ", None = "НЕТ",
-        SelectAll = "ВЫБРАТЬ ВСЕХ", Teleport = "ТЕЛЕПОРТ К СЕБЕ",
-        StartV = "ЗАПУСТИТЬ ВИХРЬ", StopV = "ОСТАНОВИТЬ ВИХРЬ",
-        StartS = "СПАМ (+ОЧИСТКА)", StopS = "СТОП СПАМ",
-        All = "ВСЕ", DistText = "РАДИУС:", SpeedText = "СКОРОСТЬ:"
-    },
-    EN = {
-        Owner = "CONTROL", Spam = "SPAMMER", Target = "TARGET: ", None = "NONE",
-        SelectAll = "SELECT ALL", Teleport = "TP TO ME",
-        StartV = "START VORTEX", StopV = "STOP VORTEX",
-        StartS = "SPAM (+CLEAN)", StopS = "STOP SPAM",
-        All = "ALL", DistText = "RADIUS:", SpeedText = "SPEED:"
-    }
+    RU = { Owner = "ГЛАВНОЕ", Spam = "СПАМЕР", Wings = "КРЫЛЬЯ", Rings = "ЮПИТЕР", Target = "ЦЕЛЬ: ", None = "НЕТ", SelectAll = "ВЫБРАТЬ ВСЕХ", Teleport = "ТП К СЕБЕ", StartV = "ПУСК ВИХРЬ", StopV = "СТОП ВИХРЬ", StartS = "ПУСК СПАМ", StopS = "СТОП СПАМ", All = "ВСЕ", SpawnW = "СПАВН 20 ПАЛЛЕТ", ToggleW = "КРЫЛЬЯ ВКЛ/ВЫКЛ", ClearW = "ОЧИСТИТЬ ВСЁ", SpawnR = "СПАВН 20 МЯЧЕЙ", ToggleR = "КОЛЬЦА ВКЛ/ВЫКЛ" },
+    EN = { Owner = "MAIN", Spam = "SPAMMER", Wings = "WINGS", Rings = "JUPITER", Target = "TARGET: ", None = "NONE", SelectAll = "SELECT ALL", Teleport = "TP TO ME", StartV = "START VORTEX", StopV = "STOP VORTEX", StartS = "START SPAM", StopS = "STOP SPAM", All = "ALL", SpawnW = "SPAWN 20", ToggleW = "TOGGLE WINGS", ClearW = "CLEAR ALL", SpawnR = "SPAWN 20 BALLS", ToggleR = "TOGGLE RINGS" }
 }
 
--- --- ИНТЕРФЕЙС (DisplayOrder на MAX) ---
-local ScreenGui = Instance.new("ScreenGui", pGui)
-ScreenGui.Name = "Vortex_System_V13_Top"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 2147483647 -- Максимальный приоритет отрисовки
-ScreenGui.IgnoreGuiInset = true -- Игнорировать отступ верхней панели (Roblox Topbar)
+local ScreenGui = Instance.new("ScreenGui", pGui); ScreenGui.Name = "Vortex_V43_Rings"; ScreenGui.IgnoreGuiInset, ScreenGui.DisplayOrder, ScreenGui.ResetOnSpawn = true, 2147483647, false
+local MainFrame = Instance.new("Frame", ScreenGui); MainFrame.Size, MainFrame.Position, MainFrame.BackgroundColor3 = UDim2.new(0, 360, 0, 520), UDim2.new(0.5, -180, 0.5, -260), Color3.fromRGB(15, 15, 15)
+Instance.new("UICorner", MainFrame); MainFrame.Active, MainFrame.Draggable = true, true
 
-local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 260, 0, 500) 
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -250)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-Instance.new("UICorner", MainFrame)
-MainFrame.Active = true; MainFrame.Draggable = true
+local Header = Instance.new("Frame", MainFrame); Header.Size, Header.BackgroundColor3 = UDim2.new(1, 0, 0, 45), Color3.fromRGB(30, 30, 30); Instance.new("UICorner", Header)
+local CloseBtn = Instance.new("TextButton", Header); CloseBtn.Size, CloseBtn.Position, CloseBtn.Text, CloseBtn.TextColor3, CloseBtn.TextSize, CloseBtn.BackgroundTransparency = UDim2.new(0, 40, 0, 40), UDim2.new(1, -45, 0, 2.5), "×", Color3.new(1,1,1), 35, 1
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+local LangBtn = Instance.new("TextButton", Header); LangBtn.Size, LangBtn.Position, LangBtn.Text, LangBtn.BackgroundColor3, LangBtn.TextColor3, LangBtn.Font, LangBtn.TextSize = UDim2.new(0, 40, 0, 40), UDim2.new(1, -90, 0, 2.5), "RU", Color3.fromRGB(50, 50, 50), Color3.new(1, 1, 1), Enum.Font.SourceSansBold, 14; Instance.new("UICorner", LangBtn)
 
-local TabBar = Instance.new("Frame", MainFrame)
-TabBar.Size = UDim2.new(1, 0, 0, 45)
-TabBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Instance.new("UICorner", TabBar)
-
-local CloseBtn = Instance.new("TextButton", TabBar)
-CloseBtn.Size = UDim2.new(0, 35, 0, 35); CloseBtn.Position = UDim2.new(1, -40, 0, 5)
-CloseBtn.Text = "×"; CloseBtn.TextSize = 30; CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0); CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", CloseBtn); CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
-local LangBtn = Instance.new("TextButton", TabBar)
-LangBtn.Size = UDim2.new(0, 35, 0, 35); LangBtn.Position = UDim2.new(1, -80, 0, 5); LangBtn.Text = "RU"; LangBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); LangBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", LangBtn)
-
-local OwnerTabBtn = Instance.new("TextButton", TabBar)
-OwnerTabBtn.Size = UDim2.new(0.35, 0, 1, 0); OwnerTabBtn.TextSize = 16; OwnerTabBtn.Font = Enum.Font.SourceSansBold; OwnerTabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); OwnerTabBtn.TextColor3 = Color3.new(1, 1, 1)
-
-local SpamTabBtn = Instance.new("TextButton", TabBar)
-SpamTabBtn.Size = UDim2.new(0.35, 0, 1, 0); SpamTabBtn.Position = UDim2.new(0.35, 0, 0, 0); SpamTabBtn.TextSize = 16; SpamTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); SpamTabBtn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
-
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 30); Title.Position = UDim2.new(0, 0, 0.09, 0); Title.TextSize = 17; Title.Font = Enum.Font.SourceSansBold; Title.TextColor3 = Color3.new(1, 1, 0.4); Title.BackgroundTransparency = 1
-
-local PlayerList = Instance.new("ScrollingFrame", MainFrame)
-PlayerList.Size = UDim2.new(0.9, 0, 0, 120); PlayerList.Position = UDim2.new(0.05, 0, 0.16, 0); PlayerList.BackgroundColor3 = Color3.fromRGB(15, 15, 15); PlayerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Instance.new("UIListLayout", PlayerList).Padding = UDim.new(0, 3)
-
-local OwnerContent = Instance.new("Frame", MainFrame); OwnerContent.Size = UDim2.new(1, 0, 0.6, 0); OwnerContent.Position = UDim2.new(0, 0, 0.42, 0); OwnerContent.BackgroundTransparency = 1
-local SpamContent = Instance.new("Frame", MainFrame); SpamContent.Size = UDim2.new(1, 0, 0.6, 0); SpamContent.Position = UDim2.new(0, 0, 0.42, 0); SpamContent.BackgroundTransparency = 1; SpamContent.Visible = false
-
-local function style(btn, color, parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 38); btn.TextSize = 14; btn.BackgroundColor3 = color; btn.TextColor3 = Color3.new(1, 1, 1); btn.Font = Enum.Font.SourceSansBold; btn.Parent = parent
-    Instance.new("UICorner", btn)
+local TabHolder = Instance.new("Frame", MainFrame); TabHolder.Size, TabHolder.Position, TabHolder.BackgroundTransparency = UDim2.new(1, 0, 0, 45), UDim2.new(0, 0, 0, 50), 1
+local function createTab(pos, width)
+    local b = Instance.new("TextButton", TabHolder); b.Size, b.Position = UDim2.new(width, -2, 1, 0), UDim2.new(pos, 1, 0, 0); b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize = Color3.fromRGB(40, 40, 40), Color3.new(1, 1, 1), Enum.Font.SourceSansBold, 12; Instance.new("UICorner", b); return b
 end
+local Tab1, Tab2, Tab3, Tab4 = createTab(0, 0.25), createTab(0.25, 0.25), createTab(0.5, 0.25), createTab(0.75, 0.25)
 
-local UIListOwner = Instance.new("UIListLayout", OwnerContent); UIListOwner.HorizontalAlignment = Enum.HorizontalAlignment.Center; UIListOwner.Padding = UDim.new(0, 6)
-local UIListSpam = Instance.new("UIListLayout", SpamContent); UIListSpam.HorizontalAlignment = Enum.HorizontalAlignment.Center; UIListSpam.Padding = UDim.new(0, 6)
+local Title = Instance.new("TextLabel", MainFrame); Title.Size, Title.Position, Title.TextColor3, Title.BackgroundTransparency, Title.Font, Title.TextSize = UDim2.new(1, 0, 0, 30), UDim2.new(0, 0, 0, 100), Color3.new(1, 1, 0), 1, Enum.Font.SourceSansBold, 18
+local PlayerList = Instance.new("ScrollingFrame", MainFrame); PlayerList.Size, PlayerList.Position, PlayerList.BackgroundColor3, PlayerList.AutomaticCanvasSize = UDim2.new(0.94, 0, 0, 150), UDim2.new(0.03, 0, 0, 135), Color3.fromRGB(10, 10, 10), Enum.AutomaticSize.Y; Instance.new("UIListLayout", PlayerList).Padding = UDim.new(0, 5)
 
--- Настройки Вихря
-local SettingContainer = Instance.new("Frame", OwnerContent); SettingContainer.Size = UDim2.new(0.9, 0, 0, 50); SettingContainer.BackgroundTransparency = 1
-local DistInput = Instance.new("TextBox", SettingContainer); DistInput.Size = UDim2.new(0.45, 0, 0, 25); DistInput.Position = UDim2.new(0, 0, 0.4, 0); DistInput.Text = "25"; DistInput.BackgroundColor3 = Color3.fromRGB(40,40,40); DistInput.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", DistInput)
-local SpeedInput = Instance.new("TextBox", SettingContainer); SpeedInput.Size = UDim2.new(0.45, 0, 0, 25); SpeedInput.Position = UDim2.new(0.55, 0, 0.4, 0); SpeedInput.Text = "0.05"; SpeedInput.BackgroundColor3 = Color3.fromRGB(40,40,40); SpeedInput.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", SpeedInput)
-local DistLabel = Instance.new("TextLabel", SettingContainer); DistLabel.Size = UDim2.new(0.45, 0, 0, 15); DistLabel.Position = UDim2.new(0, 0, 0, 0); DistLabel.BackgroundTransparency = 1; DistLabel.TextColor3 = Color3.new(1,1,1); DistLabel.TextSize = 11
-local SpeedLabel = Instance.new("TextLabel", SettingContainer); SpeedLabel.Size = UDim2.new(0.45, 0, 0, 15); SpeedLabel.Position = UDim2.new(0.55, 0, 0, 0); SpeedLabel.BackgroundTransparency = 1; SpeedLabel.TextColor3 = Color3.new(1,1,1); SpeedLabel.TextSize = 11
-
--- Кнопки
-local SelectAllBtn = Instance.new("TextButton"); style(SelectAllBtn, Color3.fromRGB(0, 90, 150), OwnerContent)
-local TeleportBtn = Instance.new("TextButton"); style(TeleportBtn, Color3.fromRGB(150, 100, 0), OwnerContent)
-local StartVortexBtn = Instance.new("TextButton"); style(StartVortexBtn, Color3.fromRGB(0, 120, 0), OwnerContent)
-local StopVortexBtn = Instance.new("TextButton"); style(StopVortexBtn, Color3.fromRGB(120, 0, 0), OwnerContent)
-local StartSpamBtn = Instance.new("TextButton"); style(StartSpamBtn, Color3.fromRGB(0, 120, 0), SpamContent)
-local StopSpamBtn = Instance.new("TextButton"); style(StopSpamBtn, Color3.fromRGB(100, 0, 0), SpamContent)
-
-local function updateTexts()
-    local L = Langs[curLang]
-    OwnerTabBtn.Text = L.Owner; SpamTabBtn.Text = L.Spam; SelectAllBtn.Text = L.SelectAll; TeleportBtn.Text = L.Teleport
-    StartVortexBtn.Text = L.StartV; StopVortexBtn.Text = L.StopV; StartSpamBtn.Text = L.StartS; StopSpamBtn.Text = L.StopS
-    DistLabel.Text = L.DistText; SpeedLabel.Text = L.SpeedText
-    if targetMode == "ALL" then Title.Text = L.Target .. L.All elseif targetMode then Title.Text = L.Target .. targetMode.Name:upper() else Title.Text = L.Target .. L.None end
+local ContentFrame = Instance.new("Frame", MainFrame); ContentFrame.Size, ContentFrame.Position, ContentFrame.BackgroundTransparency = UDim2.new(1, 0, 0, 220), UDim2.new(0, 0, 0, 295), 1
+local function createCont()
+    local f = Instance.new("Frame", ContentFrame); f.Size, f.BackgroundTransparency, f.Visible = UDim2.new(1,0,1,0), 1, false; Instance.new("UIListLayout", f).HorizontalAlignment = Enum.HorizontalAlignment.Center; f.UIListLayout.Padding = UDim.new(0, 7); return f
 end
+local OwnerC, SpamC, WingsC, RingsC_Frame = createCont(), createCont(), createCont(), createCont(); OwnerC.Visible = true
 
-local function updateList()
-    local currentButtons = {}
-    for _, child in pairs(PlayerList:GetChildren()) do if child:IsA("TextButton") then currentButtons[child.Name] = child end end
-    for name, button in pairs(currentButtons) do if not Players:FindFirstChild(name) then button:Destroy() end end
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player then
-            local b = currentButtons[p.Name]
-            if not b then
-                b = Instance.new("TextButton", PlayerList); b.Name = p.Name; b.Size = UDim2.new(1, 0, 0, 35); b.Text = "      " .. p.DisplayName; b.TextSize = 14; b.TextColor3 = Color3.new(1, 1, 1); b.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", b)
-                local Photo = Instance.new("ImageLabel", b); Photo.Size = UDim2.new(0, 28, 0, 28); Photo.Position = UDim2.new(0, 4, 0.5, -14); Photo.BackgroundTransparency = 1
-                Photo.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-                Instance.new("UICorner", Photo).CornerRadius = UDim.new(1, 0)
-                b.MouseButton1Click:Connect(function()
-                    if TargetPlayers[p.Name] then TargetPlayers[p.Name] = nil else TargetPlayers[p.Name] = true end
-                    targetMode = p; updateTexts()
-                end)
-            end
-            b.BackgroundColor3 = TargetPlayers[p.Name] and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(35, 35, 35)
-        end
-    end
+local function style(color, parent)
+    local b = Instance.new("TextButton", parent); b.Size, b.BackgroundColor3, b.TextColor3, b.Font, b.TextSize = UDim2.new(0.9, 0, 0, 42), color, Color3.new(1, 1, 1), Enum.Font.SourceSansBold, 18; Instance.new("UICorner", b); return b
 end
+local SelAll, TPMe, StartV, StopV = style(Color3.fromRGB(0, 80, 150), OwnerC), style(Color3.fromRGB(150, 100, 0), OwnerC), style(Color3.fromRGB(0, 120, 0), OwnerC), style(Color3.fromRGB(120, 0, 0), OwnerC)
+local StartS, StopS = style(Color3.fromRGB(0, 120, 0), SpamC), style(Color3.fromRGB(120, 0, 0), SpamC)
+local SpW, ToW, ClW = style(Color3.fromRGB(0, 150, 150), WingsC), style(Color3.fromRGB(50, 50, 50), WingsC), style(Color3.fromRGB(180, 0, 0), WingsC)
+local SpR, ToR = style(Color3.fromRGB(150, 0, 150), RingsC_Frame), style(Color3.fromRGB(50, 50, 50), RingsC_Frame)
 
-task.spawn(function() while task.wait(1) do if ScreenGui.Parent then updateList() else break end end end)
-
-DistInput:GetPropertyChangedSignal("Text"):Connect(function() VortexDistance = tonumber(DistInput.Text) or 25 end)
-SpeedInput:GetPropertyChangedSignal("Text"):Connect(function() VortexSpeed = tonumber(SpeedInput.Text) or 0.05 end)
-LangBtn.MouseButton1Click:Connect(function() curLang = (curLang == "RU") and "EN" or "RU"; LangBtn.Text = curLang; updateTexts() end)
-
-OwnerTabBtn.MouseButton1Click:Connect(function() OwnerContent.Visible = true; SpamContent.Visible = false; OwnerTabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); SpamTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30) end)
-SpamTabBtn.MouseButton1Click:Connect(function() OwnerContent.Visible = false; SpamContent.Visible = true; SpamTabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); OwnerTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30) end)
+function updatePlayers()
+    for _, c in pairs(PlayerList:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do if p ~= player then
+        local pf = Instance.new("Frame", PlayerList); pf.Size, pf.BackgroundColor3 = UDim2.new(1, -10, 0, 45), (TargetPlayers[p.Name] and Color3.fromRGB(0, 80, 0) or Color3.fromRGB(30, 30, 30)); Instance.new("UICorner", pf)
+        local img = Instance.new("ImageLabel", pf); img.Size, img.Position, img.BackgroundTransparency = UDim2.new(0, 38, 0, 38), UDim2.new(0, 4, 0, 3.5), 1; Instance.new("UICorner", img).CornerRadius = UDim.new(1, 0)
+        task.spawn(function() local t = "rbxthumb://type=AvatarHeadShot&id="..p.UserId.."&w=150&h=150"; pcall(function() img.Image = t end) end)
+        local b = Instance.new("TextButton", pf); b.Size, b.Position, b.BackgroundTransparency, b.Text, b.TextColor3, b.Font, b.TextSize, b.TextXAlignment = UDim2.new(1, -50, 1, 0), UDim2.new(0, 50, 0, 0), 1, p.DisplayName, Color3.new(1, 1, 1), Enum.Font.SourceSansBold, 15, Enum.TextXAlignment.Left
+        b.MouseButton1Click:Connect(function() TargetPlayers = {[p.Name] = true}; targetMode = p; updatePlayers(); updateUI() end)
+    end end
+end
 
 RunService.Heartbeat:Connect(function()
     pcall(function() remoteStruggle:FireServer() end)
-    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot or not VortexEnabled then return end
-
-    local activeVortex = {}
-    for name, _ in pairs(TargetPlayers) do
-        local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-        if tr then table.insert(activeVortex, tr) end
+    local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not root or not toyFolder then return end 
+    local canSendNetwork = (tick() - lastOwnerTick > 0.1); if canSendNetwork then lastOwnerTick = tick() end
+    
+    if VortexEnabled then
+        local t = {}
+        for n, _ in pairs(TargetPlayers) do local p = Players:FindFirstChild(n); if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then table.insert(t, p.Character.HumanoidRootPart) end end
+        if #t > 0 then angle = angle + 0.05 for i, tr in ipairs(t) do
+            local pos = root.Position + Vector3.new(math.cos(angle + (i * 6.28 / #t)) * 25, 5, math.sin(angle + (i * 6.28 / #t)) * 25)
+            if canSendNetwork then remoteOwner:FireServer(tr, pos) end
+            tr.CFrame = CFrame.new(pos)
+        end end
     end
-    for i, tr in ipairs(activeVortex) do
-        angle = angle + VortexSpeed
-        local offset = angle + (i * (math.pi * 2 / #activeVortex))
-        local pos = myRoot.Position + Vector3.new(math.cos(offset)*VortexDistance, 5, math.sin(offset)*VortexDistance)
-        pcall(function() remoteOwner:FireServer(tr, pos); tr.CFrame = CFrame.new(pos) end)
+    
+    if WingsEnabled then
+        local palls = {}
+        for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "Pallet" then local pt = o:IsA("Model") and (o.PrimaryPart or o:FindFirstChildWhichIsA("BasePart")) or o; if pt then table.insert(palls, pt) end end end
+        for i, p in ipairs(palls) do if i > 20 then break end
+            local s, idx = (i % 2 == 0 and 1 or -1), math.ceil(i/2)
+            local cf = root.CFrame * CFrame.new((14 * s) + (s * (idx-1) * 9), math.sin(tick()*3.5 - (idx * 0.7)) * 5, 6 + (idx * 2))
+            p.Velocity = Vector3.zero; if canSendNetwork then remoteOwner:FireServer(p, cf.Position) end; p.CFrame = cf * CFrame.Angles(0, 1.57, 0.4 * s) 
+        end
+    end
+
+    if RingsEnabled then
+        local balls = {}
+        for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "BasketBall" then local pt = o:IsA("Model") and (o.PrimaryPart or o:FindFirstChildWhichIsA("BasePart")) or o; if pt then table.insert(balls, pt) end end end
+        local t = tick()
+        for i, b in ipairs(balls) do if i > 20 then break end
+            local ring = (i <= 10 and 1 or 2); local side = (ring == 1 and 1 or -1); local speed = t * 1.5 * side
+            local rX, rZ = (ring == 1 and 14 or 22), (ring == 1 and 12 or 18); local off = (i % 10) * (math.pi * 2 / 10)
+            local rel = CFrame.Angles(math.rad(25 * side), 0, math.rad(15)) * Vector3.new(math.cos(speed + off) * rX, math.sin(t + off) * 2, math.sin(speed + off) * rZ)
+            local targetPos = root.Position + rel; b.Velocity = Vector3.zero; if canSendNetwork then remoteOwner:FireServer(b, targetPos) end; b.CFrame = CFrame.new(targetPos) 
+        end
     end
 end)
 
-StartSpamBtn.MouseButton1Click:Connect(function()
-    if not targetMode then return end
-    isSpamming = true; isCleaning = true
+ClW.MouseButton1Click:Connect(function()
+    isSpamming, WingsEnabled, VortexEnabled, RingsEnabled = false, false, false, false
+    ToW.BackgroundColor3, ToR.BackgroundColor3 = Color3.fromRGB(50, 50, 50), Color3.fromRGB(50, 50, 50)
+    if toyFolder then for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "Pallet" or o.Name == "DarkMatter" or o.Name == "BasketBall" then pcall(function() destroyRemote:FireServer(o) end) end end end
+end)
+
+SpW.MouseButton1Click:Connect(function() 
+    local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if r then for i = 1, 20 do task.spawn(function() toyRemote:InvokeServer("Pallet", r.CFrame * CFrame.new(0, 10, 0), 30, 30, 5) end) task.wait(0.04) end end 
+end)
+
+SpR.MouseButton1Click:Connect(function() 
+    local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if r then for i = 1, 20 do task.spawn(function() toyRemote:InvokeServer("BasketBall", r.CFrame * CFrame.new(0, 10, 0), 30, 30, 5) end) task.wait(0.04) end end 
+end)
+
+ToR.MouseButton1Click:Connect(function() RingsEnabled = not RingsEnabled; ToR.BackgroundColor3 = RingsEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50) end)
+ToW.MouseButton1Click:Connect(function() WingsEnabled = not WingsEnabled; ToW.BackgroundColor3 = WingsEnabled and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(50, 50, 50) end)
+
+StartS.MouseButton1Click:Connect(function()
+    if not targetMode then return end; isSpamming = true
     while isSpamming do
         local list = (targetMode == "ALL") and Players:GetPlayers() or {targetMode}
-        for _, p in pairs(list) do
-            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local pos = CFrame.new(p.Character.HumanoidRootPart.Position + Vector3.new(0, 4, 0))
-                task.spawn(function() toyRemote:InvokeServer("DarkMatter", pos, 0, nil, 10) end)
-            end
-        end
-        task.wait(targetMode == "ALL" and 0.12 or 0.06)
+        for _, p in pairs(list) do if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then 
+            task.spawn(function() local obj = toyRemote:InvokeServer("DarkMatter", CFrame.new(p.Character.HumanoidRootPart.Position + Vector3.new(0, 8, 0)), 0, nil, 20); task.delay(2.5, function() if obj then pcall(function() destroyRemote:FireServer(obj) end) end end) end) 
+        end end; task.wait(0.2)
     end
 end)
 
-StopSpamBtn.MouseButton1Click:Connect(function() isSpamming = false; isCleaning = false end)
-toyFolder.ChildAdded:Connect(function(toy) if isCleaning then task.wait(0.35) toy:Destroy() end end)
-StartVortexBtn.MouseButton1Click:Connect(function() VortexEnabled = true; updateTexts() end)
-StopVortexBtn.MouseButton1Click:Connect(function() VortexEnabled = false; updateTexts() end)
-SelectAllBtn.MouseButton1Click:Connect(function() for _, p in pairs(Players:GetPlayers()) do if p ~= player then TargetPlayers[p.Name] = true end end; targetMode = "ALL"; updateTexts() end)
+StopS.MouseButton1Click:Connect(function() isSpamming = false end)
+Tab1.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC_Frame.Visible = true, false, false, false end)
+Tab2.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC_Frame.Visible = false, true, false, false end)
+Tab3.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC_Frame.Visible = false, false, true, false end)
+Tab4.MouseButton1Click:Connect(function() OwnerC.Visible, SpamC.Visible, WingsC.Visible, RingsC_Frame.Visible = false, false, false, true end)
 
-TeleportBtn.MouseButton1Click:Connect(function()
-    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
-    for name, _ in pairs(TargetPlayers) do
-        local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-        if tr then local tPos = (myRoot.CFrame * CFrame.new(0, 0, -7)).Position; pcall(function() remoteOwner:FireServer(tr, tPos); tr.CFrame = CFrame.new(tPos) end) end
-    end
+LangBtn.MouseButton1Click:Connect(function() curLang = (curLang == "RU") and "EN" or "RU"; updateUI() end)
+SelAll.MouseButton1Click:Connect(function() TargetPlayers = {}; for _, p in pairs(Players:GetPlayers()) do if p ~= player then TargetPlayers[p.Name] = true end end; targetMode = "ALL"; updatePlayers(); updateUI() end)
+StartV.MouseButton1Click:Connect(function() VortexEnabled = true end); StopV.MouseButton1Click:Connect(function() VortexEnabled = false end)
+
+TPMe.MouseButton1Click:Connect(function() 
+    local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart"); if not r then return end
+    task.spawn(function()
+        for n, _ in pairs(TargetPlayers) do 
+            local p, v = Players:FindFirstChild(n), nil
+            if p and p.Character then v = p.Character:FindFirstChild("HumanoidRootPart") end
+            if v then 
+                local tpPos = (r.CFrame * CFrame.new(0, 0, -8)).Position
+                remoteOwner:FireServer(v, tpPos); v.CFrame = CFrame.new(tpPos); task.wait(0.05) 
+            end 
+        end 
+    end)
 end)
 
-updateTexts()
+function updateUI()
+    local L = Langs[curLang]; Tab1.Text, Tab2.Text, Tab3.Text, Tab4.Text = L.Owner, L.Spam, L.Wings, L.Rings; SelAll.Text, TPMe.Text, StartV.Text, StopV.Text = L.SelectAll, L.Teleport, L.StartV, L.StopV; StartS.Text, StopS.Text, SpW.Text, ToW.Text, ClW.Text = L.StartS, L.StopS, L.SpawnW, L.ToggleW, L.ClearW; SpR.Text, ToR.Text = L.SpawnR, L.ToggleR; Title.Text = (targetMode == "ALL") and L.Target..L.All or (targetMode and L.Target..targetMode.Name:upper() or L.Target..L.None); LangBtn.Text = curLang
+end
+updatePlayers(); updateUI()
