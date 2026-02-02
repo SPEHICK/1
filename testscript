@@ -123,8 +123,8 @@ RunService.Heartbeat:Connect(function()
             if ok and res then
                 local data = HttpService:JSONDecode(res)
                 if data and data.status == "hand_detected" then
-                    -- ОБНОВЛЕННАЯ ПОЗИЦИЯ: -20 влево, 90 вперед
-                    local handOrigin = root.CFrame * CFrame.new(-20, 0, -90)
+                    -- РУКА: -150 студов вперед
+                    local handOrigin = root.CFrame * CFrame.new(-20, 0, -150)
                     local palls = {}
                     if PalmEnabled then
                         for _, o in pairs(toyFolder:GetChildren()) do if o.Name == "Pallet" then table.insert(palls, (o:IsA("Model") and (o.PrimaryPart or o:FindFirstChildWhichIsA("BasePart")) or o)) end end
@@ -168,7 +168,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ОСТАЛЬНЫЕ ФУНКЦИИ
 SpP.MouseButton1Click:Connect(function() 
     local r = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     if r then for i = 1, 50 do task.spawn(function() toyRemote:InvokeServer("Pallet", r.CFrame * CFrame.new(0, 15, 0), 30, 30, 5) end) if i%5==0 then task.wait(0.1) end end end 
