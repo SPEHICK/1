@@ -14,49 +14,45 @@ local toyFolder = workspace:WaitForChild("DirizandiSpawnedInToys")
 -- Логика
 local targetMode = nil
 local TargetPlayers = {}
-local SpamTargets = {} 
 local isSpamming = false
 local VortexEnabled = false
-local isCleaning = true
+local isCleaning = false 
 local curLang = "RU"
 local angle = 0
 local VortexDistance = 25
 local VortexSpeed = 0.05
-local MAX_SPAM_DISTANCE = 35
 
 -- Словари языков
 local Langs = {
     RU = {
-        Owner = "ВЛАДЕЛЕЦ", Spam = "СПАМ", Target = "ЦЕЛЬ: ", None = "НЕТ",
-        SelectAll = "ВЫБРАТЬ ВСЕХ", Teleport = "ТЕЛЕПОРТ",
-        Check = "ТЕЛЕПОРТ + ЗАМОРОЗКА", StartV = "ВИХРЬ: ВКЛ", StopV = "ВИХРЬ: ВЫКЛ",
-        StartS = "НАЧАТЬ СПАМ", StopS = "СТОП СПАМ",
-        CleanOn = "ОЧИСТКА: ВКЛ", CleanOff = "ОЧИСТКА: ВЫКЛ", All = "ВСЕ",
-        DistText = "ДИСТАНЦИЯ:", SpeedText = "СКОРОСТЬ:"
+        Owner = "УПРАВЛЕНИЕ", Spam = "СПАМЕР", Target = "ЦЕЛЬ: ", None = "НЕТ",
+        SelectAll = "ВЫБРАТЬ ВСЕХ", Teleport = "ТЕЛЕПОРТ К СЕБЕ",
+        StartV = "ЗАПУСТИТЬ ВИХРЬ", StopV = "ОСТАНОВИТЬ ВИХРЬ",
+        StartS = "СПАМ (+ОЧИСТКА)", StopS = "СТОП СПАМ",
+        All = "ВСЕ", DistText = "РАДИУС:", SpeedText = "СКОРОСТЬ:"
     },
     EN = {
-        Owner = "OWNER", Spam = "SPAM", Target = "TARGET: ", None = "NONE",
-        SelectAll = "SELECT ALL", Teleport = "TELEPORT",
-        Check = "TP + FREEZE", StartV = "VORTEX: ON", StopV = "VORTEX: OFF",
-        StartS = "START SPAM", StopS = "STOP SPAM",
-        CleanOn = "CLEAN: ON", CleanOff = "CLEAN: OFF", All = "ALL",
-        DistText = "DISTANCE:", SpeedText = "SPEED:"
+        Owner = "CONTROL", Spam = "SPAMMER", Target = "TARGET: ", None = "NONE",
+        SelectAll = "SELECT ALL", Teleport = "TP TO ME",
+        StartV = "START VORTEX", StopV = "STOP VORTEX",
+        StartS = "SPAM (+CLEAN)", StopS = "STOP SPAM",
+        All = "ALL", DistText = "RADIUS:", SpeedText = "SPEED:"
     }
 }
 
--- --- ИНТЕРФЕЙС ---
+-- --- ИНТЕРФЕЙС (DisplayOrder на MAX) ---
 local ScreenGui = Instance.new("ScreenGui", pGui)
-ScreenGui.Name = "Final_Tabbed_System_V3"
+ScreenGui.Name = "Vortex_System_V13_Top"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 999999
+ScreenGui.DisplayOrder = 2147483647 -- Максимальный приоритет отрисовки
+ScreenGui.IgnoreGuiInset = true -- Игнорировать отступ верхней панели (Roblox Topbar)
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 260, 0, 560) 
-MainFrame.Position = UDim2.new(0.5, -130, 0.5, -280)
+MainFrame.Size = UDim2.new(0, 260, 0, 500) 
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -250)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Instance.new("UICorner", MainFrame)
-MainFrame.Active = true
-MainFrame.Draggable = true
+MainFrame.Active = true; MainFrame.Draggable = true
 
 local TabBar = Instance.new("Frame", MainFrame)
 TabBar.Size = UDim2.new(1, 0, 0, 45)
@@ -64,8 +60,7 @@ TabBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Instance.new("UICorner", TabBar)
 
 local CloseBtn = Instance.new("TextButton", TabBar)
-CloseBtn.Size = UDim2.new(0, 35, 0, 35)
-CloseBtn.Position = UDim2.new(1, -40, 0, 5)
+CloseBtn.Size = UDim2.new(0, 35, 0, 35); CloseBtn.Position = UDim2.new(1, -40, 0, 5)
 CloseBtn.Text = "×"; CloseBtn.TextSize = 30; CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0); CloseBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", CloseBtn); CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
@@ -80,164 +75,123 @@ local SpamTabBtn = Instance.new("TextButton", TabBar)
 SpamTabBtn.Size = UDim2.new(0.35, 0, 1, 0); SpamTabBtn.Position = UDim2.new(0.35, 0, 0, 0); SpamTabBtn.TextSize = 16; SpamTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30); SpamTabBtn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
 
 local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1, 0, 0, 30); Title.Position = UDim2.new(0, 0, 0.08, 0); Title.TextSize = 18; Title.Font = Enum.Font.SourceSansBold; Title.TextColor3 = Color3.new(1, 1, 0.4); Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, 0, 0, 30); Title.Position = UDim2.new(0, 0, 0.09, 0); Title.TextSize = 17; Title.Font = Enum.Font.SourceSansBold; Title.TextColor3 = Color3.new(1, 1, 0.4); Title.BackgroundTransparency = 1
 
 local PlayerList = Instance.new("ScrollingFrame", MainFrame)
-PlayerList.Size = UDim2.new(0.9, 0, 0, 110); PlayerList.Position = UDim2.new(0.05, 0, 0.14, 0); PlayerList.BackgroundColor3 = Color3.fromRGB(15, 15, 15); PlayerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerList.Size = UDim2.new(0.9, 0, 0, 120); PlayerList.Position = UDim2.new(0.05, 0, 0.16, 0); PlayerList.BackgroundColor3 = Color3.fromRGB(15, 15, 15); PlayerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Instance.new("UIListLayout", PlayerList).Padding = UDim.new(0, 3)
 
-local OwnerContent = Instance.new("Frame", MainFrame)
-OwnerContent.Size = UDim2.new(1, 0, 0.65, 0); OwnerContent.Position = UDim2.new(0, 0, 0.35, 0); OwnerContent.BackgroundTransparency = 1
-
-local SpamContent = Instance.new("Frame", MainFrame)
-SpamContent.Size = UDim2.new(1, 0, 0.65, 0); SpamContent.Position = UDim2.new(0, 0, 0.35, 0); SpamContent.BackgroundTransparency = 1; SpamContent.Visible = false
+local OwnerContent = Instance.new("Frame", MainFrame); OwnerContent.Size = UDim2.new(1, 0, 0.6, 0); OwnerContent.Position = UDim2.new(0, 0, 0.42, 0); OwnerContent.BackgroundTransparency = 1
+local SpamContent = Instance.new("Frame", MainFrame); SpamContent.Size = UDim2.new(1, 0, 0.6, 0); SpamContent.Position = UDim2.new(0, 0, 0.42, 0); SpamContent.BackgroundTransparency = 1; SpamContent.Visible = false
 
 local function style(btn, color, parent)
-	btn.Size = UDim2.new(0.9, 0, 0, 34); btn.TextSize = 15; btn.BackgroundColor3 = color; btn.TextColor3 = Color3.new(1, 1, 1); btn.Font = Enum.Font.SourceSansBold; btn.Parent = parent
-	Instance.new("UICorner", btn)
+    btn.Size = UDim2.new(0.9, 0, 0, 38); btn.TextSize = 14; btn.BackgroundColor3 = color; btn.TextColor3 = Color3.new(1, 1, 1); btn.Font = Enum.Font.SourceSansBold; btn.Parent = parent
+    Instance.new("UICorner", btn)
 end
 
-local UIListOwner = Instance.new("UIListLayout", OwnerContent); UIListOwner.HorizontalAlignment = Enum.HorizontalAlignment.Center; UIListOwner.Padding = UDim.new(0, 5)
-local UIListSpam = Instance.new("UIListLayout", SpamContent); UIListSpam.HorizontalAlignment = Enum.HorizontalAlignment.Center; UIListSpam.Padding = UDim.new(0, 5)
+local UIListOwner = Instance.new("UIListLayout", OwnerContent); UIListOwner.HorizontalAlignment = Enum.HorizontalAlignment.Center; UIListOwner.Padding = UDim.new(0, 6)
+local UIListSpam = Instance.new("UIListLayout", SpamContent); UIListSpam.HorizontalAlignment = Enum.HorizontalAlignment.Center; UIListSpam.Padding = UDim.new(0, 6)
 
--- Настройки вихря
-local SettingContainer = Instance.new("Frame", OwnerContent)
-SettingContainer.Size = UDim2.new(0.9, 0, 0, 70); SettingContainer.BackgroundTransparency = 1
+-- Настройки Вихря
+local SettingContainer = Instance.new("Frame", OwnerContent); SettingContainer.Size = UDim2.new(0.9, 0, 0, 50); SettingContainer.BackgroundTransparency = 1
+local DistInput = Instance.new("TextBox", SettingContainer); DistInput.Size = UDim2.new(0.45, 0, 0, 25); DistInput.Position = UDim2.new(0, 0, 0.4, 0); DistInput.Text = "25"; DistInput.BackgroundColor3 = Color3.fromRGB(40,40,40); DistInput.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", DistInput)
+local SpeedInput = Instance.new("TextBox", SettingContainer); SpeedInput.Size = UDim2.new(0.45, 0, 0, 25); SpeedInput.Position = UDim2.new(0.55, 0, 0.4, 0); SpeedInput.Text = "0.05"; SpeedInput.BackgroundColor3 = Color3.fromRGB(40,40,40); SpeedInput.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", SpeedInput)
+local DistLabel = Instance.new("TextLabel", SettingContainer); DistLabel.Size = UDim2.new(0.45, 0, 0, 15); DistLabel.Position = UDim2.new(0, 0, 0, 0); DistLabel.BackgroundTransparency = 1; DistLabel.TextColor3 = Color3.new(1,1,1); DistLabel.TextSize = 11
+local SpeedLabel = Instance.new("TextLabel", SettingContainer); SpeedLabel.Size = UDim2.new(0.45, 0, 0, 15); SpeedLabel.Position = UDim2.new(0.55, 0, 0, 0); SpeedLabel.BackgroundTransparency = 1; SpeedLabel.TextColor3 = Color3.new(1,1,1); SpeedLabel.TextSize = 11
 
-local DistInput = Instance.new("TextBox", SettingContainer)
-DistInput.Size = UDim2.new(0.45, 0, 0, 30); DistInput.Position = UDim2.new(0, 0, 0.4, 0); DistInput.Text = "25"; DistInput.BackgroundColor3 = Color3.fromRGB(40,40,40); DistInput.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", DistInput)
-
-local SpeedInput = Instance.new("TextBox", SettingContainer)
-SpeedInput.Size = UDim2.new(0.45, 0, 0, 30); SpeedInput.Position = UDim2.new(0.55, 0, 0.4, 0); SpeedInput.Text = "0.05"; SpeedInput.BackgroundColor3 = Color3.fromRGB(40,40,40); SpeedInput.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", SpeedInput)
-
-local DistLabel = Instance.new("TextLabel", SettingContainer)
-DistLabel.Size = UDim2.new(0.45, 0, 0, 20); DistLabel.Position = UDim2.new(0, 0, 0, 0); DistLabel.BackgroundTransparency = 1; DistLabel.TextColor3 = Color3.new(1,1,1); DistLabel.TextSize = 12
-
-local SpeedLabel = Instance.new("TextLabel", SettingContainer)
-SpeedLabel.Size = UDim2.new(0.45, 0, 0, 20); SpeedLabel.Position = UDim2.new(0.55, 0, 0, 0); SpeedLabel.BackgroundTransparency = 1; SpeedLabel.TextColor3 = Color3.new(1,1,1); SpeedLabel.TextSize = 12
-
--- Кнопки OWNER
+-- Кнопки
 local SelectAllBtn = Instance.new("TextButton"); style(SelectAllBtn, Color3.fromRGB(0, 90, 150), OwnerContent)
 local TeleportBtn = Instance.new("TextButton"); style(TeleportBtn, Color3.fromRGB(150, 100, 0), OwnerContent)
-local CheckBtn = Instance.new("TextButton"); style(CheckBtn, Color3.fromRGB(120, 0, 180), OwnerContent)
 local StartVortexBtn = Instance.new("TextButton"); style(StartVortexBtn, Color3.fromRGB(0, 120, 0), OwnerContent)
 local StopVortexBtn = Instance.new("TextButton"); style(StopVortexBtn, Color3.fromRGB(120, 0, 0), OwnerContent)
-
--- Кнопки SPAM
-local OptBtn = Instance.new("TextButton"); style(OptBtn, Color3.fromRGB(60, 60, 60), SpamContent)
 local StartSpamBtn = Instance.new("TextButton"); style(StartSpamBtn, Color3.fromRGB(0, 120, 0), SpamContent)
 local StopSpamBtn = Instance.new("TextButton"); style(StopSpamBtn, Color3.fromRGB(100, 0, 0), SpamContent)
 
 local function updateTexts()
     local L = Langs[curLang]
-    OwnerTabBtn.Text = L.Owner; SpamTabBtn.Text = L.Spam; SelectAllBtn.Text = L.SelectAll; TeleportBtn.Text = L.Teleport; CheckBtn.Text = L.Check
-    StartVortexBtn.Text = L.StartV; StopVortexBtn.Text = L.StopV; StartSpamBtn.Text = L.StartS; StopSpamBtn.Text = L.StopS; OptBtn.Text = isCleaning and L.CleanOn or L.CleanOff
+    OwnerTabBtn.Text = L.Owner; SpamTabBtn.Text = L.Spam; SelectAllBtn.Text = L.SelectAll; TeleportBtn.Text = L.Teleport
+    StartVortexBtn.Text = L.StartV; StopVortexBtn.Text = L.StopV; StartSpamBtn.Text = L.StartS; StopSpamBtn.Text = L.StopS
     DistLabel.Text = L.DistText; SpeedLabel.Text = L.SpeedText
     if targetMode == "ALL" then Title.Text = L.Target .. L.All elseif targetMode then Title.Text = L.Target .. targetMode.Name:upper() else Title.Text = L.Target .. L.None end
 end
 
+local function updateList()
+    local currentButtons = {}
+    for _, child in pairs(PlayerList:GetChildren()) do if child:IsA("TextButton") then currentButtons[child.Name] = child end end
+    for name, button in pairs(currentButtons) do if not Players:FindFirstChild(name) then button:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player then
+            local b = currentButtons[p.Name]
+            if not b then
+                b = Instance.new("TextButton", PlayerList); b.Name = p.Name; b.Size = UDim2.new(1, 0, 0, 35); b.Text = "      " .. p.DisplayName; b.TextSize = 14; b.TextColor3 = Color3.new(1, 1, 1); b.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", b)
+                local Photo = Instance.new("ImageLabel", b); Photo.Size = UDim2.new(0, 28, 0, 28); Photo.Position = UDim2.new(0, 4, 0.5, -14); Photo.BackgroundTransparency = 1
+                Photo.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+                Instance.new("UICorner", Photo).CornerRadius = UDim.new(1, 0)
+                b.MouseButton1Click:Connect(function()
+                    if TargetPlayers[p.Name] then TargetPlayers[p.Name] = nil else TargetPlayers[p.Name] = true end
+                    targetMode = p; updateTexts()
+                end)
+            end
+            b.BackgroundColor3 = TargetPlayers[p.Name] and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(35, 35, 35)
+        end
+    end
+end
+
+task.spawn(function() while task.wait(1) do if ScreenGui.Parent then updateList() else break end end end)
+
 DistInput:GetPropertyChangedSignal("Text"):Connect(function() VortexDistance = tonumber(DistInput.Text) or 25 end)
 SpeedInput:GetPropertyChangedSignal("Text"):Connect(function() VortexSpeed = tonumber(SpeedInput.Text) or 0.05 end)
-
 LangBtn.MouseButton1Click:Connect(function() curLang = (curLang == "RU") and "EN" or "RU"; LangBtn.Text = curLang; updateTexts() end)
-
-local function updateList()
-	for _, v in pairs(PlayerList:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-	for _, p in pairs(Players:GetPlayers()) do
-		if p ~= player then
-			local b = Instance.new("TextButton", PlayerList)
-			b.Size = UDim2.new(1, 0, 0, 35); b.Text = "      " .. p.DisplayName; b.TextSize = 15; b.TextColor3 = Color3.new(1, 1, 1); b.BackgroundColor3 = TargetPlayers[p.Name] and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(35, 35, 35); b.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", b)
-			local Photo = Instance.new("ImageLabel", b); Photo.Size = UDim2.new(0, 28, 0, 28); Photo.Position = UDim2.new(0, 4, 0.5, -14); Photo.BackgroundTransparency = 1
-			Photo.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-			Instance.new("UICorner", Photo).CornerRadius = UDim.new(1, 0)
-			b.MouseButton1Click:Connect(function() TargetPlayers = {[p.Name] = true}; targetMode = p; updateTexts(); updateList() end)
-		end
-	end
-end
 
 OwnerTabBtn.MouseButton1Click:Connect(function() OwnerContent.Visible = true; SpamContent.Visible = false; OwnerTabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); SpamTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30) end)
 SpamTabBtn.MouseButton1Click:Connect(function() OwnerContent.Visible = false; SpamContent.Visible = true; SpamTabBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50); OwnerTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30) end)
 
-CheckBtn.MouseButton1Click:Connect(function()
+RunService.Heartbeat:Connect(function()
+    pcall(function() remoteStruggle:FireServer() end)
     local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
+    if not myRoot or not VortexEnabled then return end
+
+    local activeVortex = {}
     for name, _ in pairs(TargetPlayers) do
         local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-        if tr then
-            SpamTargets[name] = true
-            for i = 1, 2 do
-                local tPos = (myRoot.CFrame * CFrame.new(0, 0, -6)).Position
-                pcall(function() remoteOwner:FireServer(tr, tPos); tr.CFrame = CFrame.new(tPos) end)
-                task.wait(0.05)
-            end
-        end
+        if tr then table.insert(activeVortex, tr) end
     end
-end)
-
-RunService.Heartbeat:Connect(function()
-	pcall(function() remoteStruggle:FireServer() end)
-	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-	
-    -- СПАМ СЕТ ОВНЕРА ДЛЯ ЗАМОРОЗКИ
-	for name, _ in pairs(SpamTargets) do
-		local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-		if tr then
-			if (myRoot.Position - tr.Position).Magnitude <= MAX_SPAM_DISTANCE then pcall(function() remoteOwner:FireServer(tr, tr.Position) end) else SpamTargets[name] = nil end
-		else SpamTargets[name] = nil end
-	end
-    
-    -- ЛОГИКА ВИХРЯ
-    if VortexEnabled then
-        local activeVortex = {}
-        for name, _ in pairs(TargetPlayers) do
-            local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-            if tr then table.insert(activeVortex, tr) end
-        end
-
-	    for i, tr in ipairs(activeVortex) do
-			angle = angle + VortexSpeed
-            local offset = angle + (i * (math.pi * 2 / #activeVortex))
-			local pos = myRoot.Position + Vector3.new(math.cos(offset)*VortexDistance, 5, math.sin(offset)*VortexDistance)
-			pcall(function() remoteOwner:FireServer(tr, pos); tr.CFrame = CFrame.new(pos) end)
-	    end
+    for i, tr in ipairs(activeVortex) do
+        angle = angle + VortexSpeed
+        local offset = angle + (i * (math.pi * 2 / #activeVortex))
+        local pos = myRoot.Position + Vector3.new(math.cos(offset)*VortexDistance, 5, math.sin(offset)*VortexDistance)
+        pcall(function() remoteOwner:FireServer(tr, pos); tr.CFrame = CFrame.new(pos) end)
     end
 end)
 
 StartSpamBtn.MouseButton1Click:Connect(function()
-	if not targetMode then return end
-	isSpamming = true
-	while isSpamming do
-		local list = (targetMode == "ALL") and Players:GetPlayers() or {targetMode}
-		for _, p in pairs(list) do
-			if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-				local pos = CFrame.new(p.Character.HumanoidRootPart.Position + Vector3.new(0, 4, 0))
-				task.spawn(function() toyRemote:InvokeServer("DarkMatter", pos, 0, nil, 10) end)
-			end
-		end
-		task.wait(targetMode == "ALL" and 0.12 or 0.06)
-	end
+    if not targetMode then return end
+    isSpamming = true; isCleaning = true
+    while isSpamming do
+        local list = (targetMode == "ALL") and Players:GetPlayers() or {targetMode}
+        for _, p in pairs(list) do
+            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local pos = CFrame.new(p.Character.HumanoidRootPart.Position + Vector3.new(0, 4, 0))
+                task.spawn(function() toyRemote:InvokeServer("DarkMatter", pos, 0, nil, 10) end)
+            end
+        end
+        task.wait(targetMode == "ALL" and 0.12 or 0.06)
+    end
 end)
 
-StopSpamBtn.MouseButton1Click:Connect(function() 
-    isSpamming = false 
-    VortexEnabled = false
-    SpamTargets = {} -- ПРЕКРАЩЕНИЕ ВСЕГО СПАМА СЕТ ОВНЕРА
-end)
+StopSpamBtn.MouseButton1Click:Connect(function() isSpamming = false; isCleaning = false end)
+toyFolder.ChildAdded:Connect(function(toy) if isCleaning then task.wait(0.35) toy:Destroy() end end)
+StartVortexBtn.MouseButton1Click:Connect(function() VortexEnabled = true; updateTexts() end)
+StopVortexBtn.MouseButton1Click:Connect(function() VortexEnabled = false; updateTexts() end)
+SelectAllBtn.MouseButton1Click:Connect(function() for _, p in pairs(Players:GetPlayers()) do if p ~= player then TargetPlayers[p.Name] = true end end; targetMode = "ALL"; updateTexts() end)
 
-StartVortexBtn.MouseButton1Click:Connect(function() VortexEnabled = true end)
-StopVortexBtn.MouseButton1Click:Connect(function() VortexEnabled = false end)
-
-SelectAllBtn.MouseButton1Click:Connect(function() TargetPlayers = {}; for _, p in pairs(Players:GetPlayers()) do if p ~= player then TargetPlayers[p.Name] = true end end; targetMode = "ALL"; updateTexts(); updateList() end)
-OptBtn.MouseButton1Click:Connect(function() isCleaning = not isCleaning; updateTexts() end)
-toyFolder.ChildAdded:Connect(function(toy) if isCleaning then task.wait(0.3) toy:Destroy() end end)
 TeleportBtn.MouseButton1Click:Connect(function()
-	local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if not myRoot then return end
-	for name, _ in pairs(TargetPlayers) do
-		local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-		if tr then local tPos = (myRoot.CFrame * CFrame.new(0, 0, -7)).Position; pcall(function() remoteOwner:FireServer(tr, tPos); tr.CFrame = CFrame.new(tPos) end) end
-	end
+    local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    for name, _ in pairs(TargetPlayers) do
+        local p = Players:FindFirstChild(name); local tr = p and p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+        if tr then local tPos = (myRoot.CFrame * CFrame.new(0, 0, -7)).Position; pcall(function() remoteOwner:FireServer(tr, tPos); tr.CFrame = CFrame.new(tPos) end) end
+    end
 end)
 
-updateList(); updateTexts()
+updateTexts()
