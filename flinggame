@@ -6,10 +6,20 @@ local player = Players.LocalPlayer
 local pGui = player:WaitForChild("PlayerGui", 10)
 
 local folderName = player.Name .. "SpawnedInToys"
-local toyFolder = workspace:FindFirstChild(folderName)
+local toyFolder = nil
 
+-- Безопасный поиск папки с игрушками
 task.spawn(function()
-    if not toyFolder then toyFolder = workspace:WaitForChild(folderName, 10) end
+    toyFolder = workspace:FindFirstChild(folderName)
+    if not toyFolder then
+        -- Ждем появления папки, но не блокируем скрипт
+        local success = pcall(function()
+            toyFolder = workspace:WaitForChild(folderName, 5)
+        end)
+        if not success then
+            warn("[Vortex] Toy folder not found, some features may not work")
+        end
+    end
 end)
 
 -- Очистка старых GUI
@@ -156,7 +166,12 @@ end
 RunService.Heartbeat:Connect(function()
     pcall(function() remoteStruggle:FireServer() end)
     local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    if not root or not toyFolder then return end 
+    if not root then return end
+    if not toyFolder then 
+        -- Пытаемся найти папку снова
+        toyFolder = workspace:FindFirstChild(folderName)
+        if not toyFolder then return end
+    end 
     local canSendNetwork = (tick() - lastOwnerTick > 0.1); if canSendNetwork then lastOwnerTick = tick() end
     
     if VortexEnabled then
